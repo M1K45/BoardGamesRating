@@ -1,0 +1,137 @@
+﻿@page "/games/details"
+@using Microsoft.EntityFrameworkCore
+@using BoardGamesRating.Data
+@inject IDbContextFactory<BoardGamesRating.Data.ApplicationDbContext> DbFactory
+@inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+
+<PageTitle>Details</PageTitle>
+
+<h1>Details</h1>
+
+<div>
+    <h2>Game</h2>
+    <hr />
+    @if (game is null)
+    {
+        <p><em>Loading...</em></p>
+    }
+    else {
+        <dl class="row">
+            <dt class="col-sm-2">Title</dt>
+            <dd class="col-sm-10">@game.Title</dd>
+            <dt class="col-sm-2">Description</dt>
+            <dd class="col-sm-10">@game.Description</dd>
+            <dt class="col-sm-2">ReleaseDate</dt>
+            <dd class="col-sm-10">@game.ReleaseDate</dd>
+            <dt class="col-sm-2">Rate</dt>
+            @* <dd class="col-sm-10">@game.Rate</dd> *@
+            <dd class="col-sm-10">@(game.NumRates > 0 ? game.Rate : "This game has no rates yet.") </dd>
+
+        </dl>
+        <div>
+            <a href="@($"/games/edit?id={game.Id}")">Edit</a> |
+            <a href="@($"/games")">Back to List</a>
+        </div>
+    }
+
+    <p>Add a review</p>
+    <div>
+        <EditForm method="post" Model="Review" OnValidSubmit="AddReview" FormName="create" Enhance> 
+            <DataAnnotationsValidator />
+
+            <ValidationSummary class="text-danger" role="alert" />
+            <div class="mb-3">
+                <label for="rating" class="form-label">How did you like this game on a scale from 1 to 10? </label>
+                <InputNumber id="content" @bind-Value="Review.Rating" class="form-control" />
+                <ValidationMessage For="() => Review.Rating" class="text-danger" />
+            </div>
+
+            <ValidationSummary class="text-danger" role="alert" />
+            <div class="mb-3">
+                <label for="content" class="form-label">Write your review!</label>
+                <InputText id="content" @bind-Value="Review.Content" class="form-control" />
+                <ValidationMessage For="() => Review.Content" class="text-danger" />
+            </div>
+            <button type="submit" class="btn btn-primary">Post Review</button>
+        </EditForm>
+    </div>
+
+    <p>Reviews:</p>
+    <p>@game.Rate</p>
+    @foreach (var review in gameReviews)
+    {
+        <li>
+            <strong>Rating:</strong> @review.Rating<br />
+            <strong>Content:</strong> @review.Content<br />
+            <strong>UserId:</strong> @review.UserId
+        </li>
+    }
+
+</div>
+
+@code {
+    private Game? game;
+    private string? userId;
+
+    [SupplyParameterFromQuery]
+    private int Id { get; set; }
+
+    private List<Review> gameReviews = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        using var context = DbFactory.CreateDbContext();
+        game = await context.Games.FirstOrDefaultAsync(m => m.Id == Id);
+
+        if (game is null)
+        {
+            NavigationManager.NavigateTo("notfound");
+        }
+
+        Review.GameId = game.Id;
+
+        userId = await getUserId();
+        Review.UserId = userId;
+
+        gameReviews = await context.Reviews
+        .Where(r => r.GameId == game.Id)
+        .ToListAsync();
+    }
+
+    [SupplyParameterFromForm]
+    private Review Review { get; set; } = new();
+
+
+    private async Task AddReview()
+    {
+        using var context = DbFactory.CreateDbContext();
+        context.Reviews.Add(Review);
+        await context.SaveChangesAsync();
+
+        game = await context.Games.FirstOrDefaultAsync(m => m.Id == Id);
+
+        if (game is null)
+        {
+            NavigationManager.NavigateTo("notfound");
+            return;
+        }
+
+        float prevSum = game.Rate * game.NumRates;
+        game.NumRates++;
+
+        game.Rate = (prevSum + Review.Rating) / game.NumRates;
+
+        await context.SaveChangesAsync();
+
+    }
+
+    async Task<string> getUserId()
+    {
+        var user = (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User;
+        var UserId = user.FindFirst(u => u.Type.Contains("nameidentifier"))?.Value;
+        return UserId;
+    }
+
+}
