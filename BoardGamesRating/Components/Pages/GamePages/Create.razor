@@ -3,6 +3,7 @@
 @using BoardGamesRating.Data
 @inject IDbContextFactory<BoardGamesRating.Data.ApplicationDbContext> DbFactory
 @inject NavigationManager NavigationManager
+@rendermode InteractiveServer
 
 <PageTitle>Create</PageTitle>
 @using Microsoft.AspNetCore.Authorization
@@ -31,11 +32,22 @@
                 <label for="releasedate" class="form-label">ReleaseDate:</label> 
                 <InputDate id="releasedate" @bind-Value="Game.ReleaseDate" class="form-control" /> 
                 <ValidationMessage For="() => Game.ReleaseDate" class="text-danger" /> 
-            </div>               
+            </div>
+            <div class="mb-3">
+                <label for="image_url" class="form-label">Image URL:</label>
+                <InputText id="image_url" @bind-Value="Game.ImageUrl" class="form-control" />
+                <ValidationMessage For="() => Game.ImageUrl" class="text-danger" />
+            </div>
             <button type="submit" class="btn btn-primary">Create</button>
         </EditForm>
     </div>
+
 </div>
+
+    <h3>File Upload</h3>
+    <InputFile OnChange="OnChange" />
+    <p> Imgae source: @imageSource</p>
+    <img src="@imageSource" style="max-width: 400px; margin-top: 20px;" />
 
 <div>
     <a href="/games">Back to List</a>
@@ -44,13 +56,36 @@
 @code {
     [SupplyParameterFromForm]
     private Game Game { get; set; } = new();
+    private string? imageSource = String.Empty;
 
     // To protect from overposting attacks, see https://learn.microsoft.com/aspnet/core/blazor/forms/#mitigate-overposting-attacks.
     private async Task AddGame()
     {
         using var context = DbFactory.CreateDbContext();
+        if (!string.IsNullOrWhiteSpace(imageSource))
+        {
+            Game.ImageUrl = imageSource;
+        }
         context.Games.Add(Game);
         await context.SaveChangesAsync();
         NavigationManager.NavigateTo("/games");
     }
+
+    public async Task OnChange(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+
+        Console.WriteLine("jestem tu");
+        
+        var buffer = new byte[file.Size];
+        await file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024).ReadAsync(buffer);
+
+        
+        var base64 = Convert.ToBase64String(buffer);
+        var contentType = file.ContentType; 
+        imageSource = $"data:{contentType};base64,{base64}";
+
+        StateHasChanged();
+    }
+
 }

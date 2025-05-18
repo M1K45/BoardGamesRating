@@ -11,5 +11,7 @@ namespace BoardGamesRating.Data
         public DateTime? ReleaseDate { get; set; }
         public float Rate { get; set; } = 0;
         public int NumRates { get; set; } = 0;
+
+        public string? ImageUrl { get; set; }
     }
 }

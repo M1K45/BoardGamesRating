@@ -4,6 +4,8 @@
 @inject IDbContextFactory<BoardGamesRating.Data.ApplicationDbContext> DbFactory
 @inject NavigationManager NavigationManager
 @inject AuthenticationStateProvider AuthenticationStateProvider
+@rendermode InteractiveServer
+
 
 
 <PageTitle>Details</PageTitle>
@@ -26,14 +28,23 @@
             <dt class="col-sm-2">ReleaseDate</dt>
             <dd class="col-sm-10">@game.ReleaseDate</dd>
             <dt class="col-sm-2">Rate</dt>
-            @* <dd class="col-sm-10">@game.Rate</dd> *@
+            @* @* <dd class="col-sm-10">@game.Rate</dd> *@
+            
             <dd class="col-sm-10">@(game.NumRates > 0 ? game.Rate : "This game has no rates yet.") </dd>
 
         </dl>
+        @if (imageSource is not null)
+        {
+            <p>
+                <img src="@imageSource" style="width: 300px; height: auto;"/>
+            </p>
+        }
         <div>
             <a href="@($"/games/edit?id={game.Id}")">Edit</a> |
             <a href="@($"/games")">Back to List</a>
         </div>
+
+
     }
 
     <p>Add a review</p>
@@ -74,6 +85,7 @@
 @code {
     private Game? game;
     private string? userId;
+    private string? imageSource;
 
     [SupplyParameterFromQuery]
     private int Id { get; set; }
@@ -82,6 +94,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+
         using var context = DbFactory.CreateDbContext();
         game = await context.Games.FirstOrDefaultAsync(m => m.Id == Id);
 
@@ -98,6 +111,8 @@
         gameReviews = await context.Reviews
         .Where(r => r.GameId == game.Id)
         .ToListAsync();
+
+        imageSource = game.ImageUrl;
     }
 
     [SupplyParameterFromForm]
@@ -124,6 +139,8 @@
         game.Rate = (prevSum + Review.Rating) / game.NumRates;
 
         await context.SaveChangesAsync();
+        StateHasChanged();
+
 
     }
 
